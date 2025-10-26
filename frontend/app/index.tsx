@@ -99,18 +99,45 @@ export default function App() {
         }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         setConfigured(true);
         setShowConfig(false);
-        Alert.alert('Success', 'SSH configuration saved!');
-        await checkStatus();
+        Alert.alert('Success', 'Configuration saved! Now click Connect to establish connection.');
       } else {
-        Alert.alert('Error', 'Failed to save configuration');
+        Alert.alert('Error', data.detail || 'Failed to save configuration');
       }
     } catch (error) {
+      console.error('Save error:', error);
       Alert.alert('Error', 'Failed to connect to server');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const response = await fetch(`${API_URL}/api/connect`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setConnected(true);
+        Alert.alert('Success', 'Connected to Jetson device!');
+      } else {
+        setConnected(false);
+        Alert.alert('Connection Failed', data.detail || 'Could not connect to device');
+      }
+    } catch (error) {
+      console.error('Connect error:', error);
+      setConnected(false);
+      Alert.alert('Error', 'Failed to connect to device');
+    } finally {
+      setConnecting(false);
     }
   };
 
