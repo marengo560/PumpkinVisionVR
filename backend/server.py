@@ -186,6 +186,28 @@ async def get_config():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/commands")
+async def save_commands(commands: CustomCommands):
+    """Save custom commands"""
+    try:
+        await commands_collection.delete_many({})
+        await commands_collection.insert_one(commands.dict())
+        return {"message": "Commands saved successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/commands")
+async def get_commands():
+    """Get saved custom commands"""
+    try:
+        commands = await commands_collection.find_one({}, {"_id": 0})
+        if not commands:
+            # Return defaults
+            return CustomCommands().dict()
+        return commands
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/execute")
 async def execute_command(request: CommandRequest):
     """Execute custom SSH command"""
