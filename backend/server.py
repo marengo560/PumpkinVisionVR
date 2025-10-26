@@ -104,9 +104,59 @@ async def save_config(config: SSHConfig):
         config_dict = config.dict()
         await config_collection.insert_one(config_dict)
         
-        return {"message": "Configuration saved successfully"}
+        # Update state
+        connection_state["configured"] = True
+        connection_state["connected"] = False
+        
+        return {"message": "Configuration saved successfully", "configured": True}
     except Exception as e:
+        logger.error(f"Error saving config: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/connect")
+async def connect_to_device():
+    """Test connection to the device"""
+    try:
+        config = await config_collection.find_one({})
+        if not config:
+            raise HTTPException(status_code=400, detail="SSH not configured")
+        
+        # Try to connect
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        
+        ssh.connect(
+            hostname=config['host'],
+            port=config.get('port', 22),
+            username=config['username'],
+            password=config['password'],
+            timeout=10
+        )
+        
+        # Test with simple command
+        stdin, stdout, stderr = ssh.exec_command('echo "Connected"')
+        output = stdout.read().decode('utf-8')
+        ssh.close()
+        
+        # Update state
+        connection_state["connected"] = True
+        connection_state["configured"] = True
+        
+        return {
+            "success": True,
+            "message": "Connected successfully",
+            "output": output.strip()
+        }
+    except paramiko.AuthenticationException:
+        connection_state["connected"] = False
+        raise HTTPException(status_code=401, detail="Authentication failed. Check username/password.")
+    except paramiko.SSHException as e:
+        connection_state["connected"] = False
+        raise HTTPException(status_code=500, detail=f"SSH error: {str(e)}")
+    except Exception as e:
+        connection_state["connected"] = False
+        logger.error(f"Connection error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {str(e)}")
 
 @app.get("/api/config")
 async def get_config():
