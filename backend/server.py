@@ -278,24 +278,8 @@ async def get_status():
         if not config:
             return {"connected": False, "configured": False}
         
-        # Try to ping the device
-        try:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(
-                hostname=config['host'],
-                port=config.get('port', 22),
-                username=config['username'],
-                password=config['password'],
-                timeout=5
-            )
-            ssh.close()
-            connected = True
-        except:
-            connected = False
-        
         return {
-            "connected": connected,
+            "connected": connection_state.get("connected", False),
             "configured": True,
             "host": config.get('host')
         }
