@@ -19,9 +19,9 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
 
 export default function App() {
   const [configured, setConfigured] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
+  const [showConfig, setShowConfig] = useState(true); // Start with true, will be updated by checkConfiguration
   const [connected, setConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [connecting, setConnecting] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   
