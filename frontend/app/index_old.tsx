@@ -13,17 +13,17 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function App() {
   const [configured, setConfigured] = useState(false);
-  const [showConfig, setShowConfig] = useState(true);
-  const [showCommands, setShowCommands] = useState(false);
+  const [showConfig, setShowConfig] = useState(true); // Start with true, will be updated by checkConfiguration
   const [connected, setConnected] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [connecting, setConnecting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
   
   // SSH Config
   const [host, setHost] = useState('');
@@ -35,36 +35,15 @@ export default function App() {
   const [fanOn, setFanOn] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
   const [lightsOn, setLightsOn] = useState(false);
-  
-  // Custom commands
-  const [commands, setCommands] = useState({
-    fan_on: 'echo 1 > /sys/class/gpio/gpio_fan/value',
-    fan_off: 'echo 0 > /sys/class/gpio/gpio_fan/value',
-    camera_on: 'nohup python3 /home/camera_script.py > /dev/null 2>&1 &',
-    camera_off: 'pkill -f camera_script.py',
-    lights_on: 'echo 1 > /sys/class/gpio/gpio_lights/value',
-    lights_off: 'echo 0 > /sys/class/gpio/gpio_lights/value',
-    shutdown_cmd: 'sudo shutdown -h now',
-  });
-  
-  // Terminal logs
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
 
   useEffect(() => {
     checkConfiguration();
-    loadCommands();
     const interval = setInterval(() => {
-      if (configured) {
-        checkStatus();
-      }
-    }, 5000);
+      checkStatus();
+    }, 5000); // Check status every 5 seconds
     
     return () => clearInterval(interval);
   }, [configured]);
-
-  const addLog = (log: string) => {
-    setTerminalLogs(prev => [...prev.slice(-4), `[${new Date().toLocaleTimeString()}] ${log}`]);
-  };
 
   const checkConfiguration = async () => {
     try {
@@ -73,7 +52,7 @@ export default function App() {
       
       if (data.configured) {
         setConfigured(true);
-        setShowConfig(false);
+        setShowConfig(false); // Hide config screen when already configured
         setHost(data.host);
         setUsername(data.username);
         setPort(data.port?.toString() || '22');
@@ -83,52 +62,25 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error checking config:', error);
-      setShowConfig(true);
+      setShowConfig(true); // Show config on error
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCommands = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/commands`);
-      const data = await response.json();
-      setCommands(data);
-    } catch (error) {
-      console.error('Error loading commands:', error);
-    }
-  };
-
-  const saveCommands = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/commands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commands),
-      });
-
-      if (response.ok) {
-        Alert.alert('Success', 'Commands saved!');
-        setShowCommands(false);
-      } else {
-        Alert.alert('Error', 'Failed to save commands');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save commands');
-    } finally {
-      setLoading(false);
+      setLoading(false); // Done loading
     }
   };
 
   const checkStatus = async () => {
+    if (!configured) return;
+    
     try {
+      setStatusLoading(true);
       const response = await fetch(`${API_URL}/api/status`);
       const data = await response.json();
       setConnected(data.connected);
     } catch (error) {
       console.error('Error checking status:', error);
       setConnected(false);
+    } finally {
+      setStatusLoading(false);
     }
   };
 
@@ -156,12 +108,12 @@ export default function App() {
       if (response.ok) {
         setConfigured(true);
         setShowConfig(false);
-        addLog('✅ Configuration saved');
-        Alert.alert('Success', 'Configuration saved! Now click Connect.');
+        Alert.alert('Success', 'Configuration saved! Now click Connect to establish connection.');
       } else {
         Alert.alert('Error', data.detail || 'Failed to save configuration');
       }
     } catch (error) {
+      console.error('Save error:', error);
       Alert.alert('Error', 'Failed to connect to server');
     } finally {
       setLoading(false);
@@ -170,7 +122,6 @@ export default function App() {
 
   const handleConnect = async () => {
     setConnecting(true);
-    addLog('🔄 Connecting to device...');
     try {
       const response = await fetch(`${API_URL}/api/connect`, {
         method: 'POST',
@@ -180,16 +131,14 @@ export default function App() {
 
       if (response.ok) {
         setConnected(true);
-        addLog('✅ Connected to device');
         Alert.alert('Success', 'Connected to Jetson device!');
       } else {
         setConnected(false);
-        addLog('❌ Connection failed: ' + data.detail);
-        Alert.alert('Connection Failed', data.detail || 'Could not connect');
+        Alert.alert('Connection Failed', data.detail || 'Could not connect to device');
       }
     } catch (error) {
+      console.error('Connect error:', error);
       setConnected(false);
-      addLog('❌ Connection error');
       Alert.alert('Error', 'Failed to connect to device');
     } finally {
       setConnecting(false);
@@ -203,7 +152,6 @@ export default function App() {
     }
 
     setLoading(true);
-    addLog(`🔄 ${endpoint} ${action}...`);
     try {
       const response = await fetch(`${API_URL}/api/${endpoint}`, {
         method: 'POST',
@@ -215,14 +163,11 @@ export default function App() {
       
       if (response.ok) {
         stateSetter(action === 'on');
-        addLog(`✅ ${endpoint} ${action}: ${data.command}`);
         Alert.alert('Success', `${endpoint} turned ${action}`);
       } else {
-        addLog(`❌ ${endpoint} failed: ${data.detail}`);
         Alert.alert('Error', data.detail || 'Command failed');
       }
     } catch (error) {
-      addLog(`❌ ${endpoint} error`);
       Alert.alert('Error', 'Failed to execute command');
     } finally {
       setLoading(false);
@@ -240,23 +185,18 @@ export default function App() {
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
-            addLog('🔄 Sending shutdown command...');
             try {
               const response = await fetch(`${API_URL}/api/shutdown`, {
                 method: 'POST',
               });
               
               if (response.ok) {
-                const data = await response.json();
-                addLog(`✅ Shutdown: ${data.command}`);
                 Alert.alert('Success', 'Shutdown command sent');
                 setConnected(false);
               } else {
-                addLog('❌ Shutdown failed');
                 Alert.alert('Error', 'Failed to shutdown');
               }
             } catch (error) {
-              addLog('❌ Shutdown error');
               Alert.alert('Error', 'Failed to send shutdown command');
             } finally {
               setLoading(false);
@@ -267,92 +207,6 @@ export default function App() {
     );
   };
 
-  // Commands Configuration Screen
-  if (showCommands) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <ScrollView contentContainerStyle={styles.configContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => setShowCommands(false)} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={28} color="#FF6B00" />
-            </TouchableOpacity>
-            <Text style={styles.title}>Custom Commands</Text>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Fan ON Command</Text>
-            <TextInput
-              style={styles.commandInput}
-              value={commands.fan_on}
-              onChangeText={(val) => setCommands({...commands, fan_on: val})}
-              placeholderTextColor="#666"
-              multiline
-            />
-
-            <Text style={styles.label}>Fan OFF Command</Text>
-            <TextInput
-              style={styles.commandInput}
-              value={commands.fan_off}
-              onChangeText={(val) => setCommands({...commands, fan_off: val})}
-              placeholderTextColor="#666"
-              multiline
-            />
-
-            <Text style={styles.label}>Camera ON Command</Text>
-            <TextInput
-              style={styles.commandInput}
-              value={commands.camera_on}
-              onChangeText={(val) => setCommands({...commands, camera_on: val})}
-              placeholderTextColor="#666"
-              multiline
-            />
-
-            <Text style={styles.label}>Camera OFF Command</Text>
-            <TextInput
-              style={styles.commandInput}
-              value={commands.camera_off}
-              onChangeText={(val) => setCommands({...commands, camera_off: val})}
-              placeholderTextColor="#666"
-              multiline
-            />
-
-            <Text style={styles.label}>Lights ON Command</Text>
-            <TextInput
-              style={styles.commandInput}
-              value={commands.lights_on}
-              onChangeText={(val) => setCommands({...commands, lights_on: val})}
-              placeholderTextColor="#666"
-              multiline
-            />
-
-            <Text style={styles.label}>Lights OFF Command</Text>
-            <TextInput
-              style={styles.commandInput}
-              value={commands.lights_off}
-              onChangeText={(val) => setCommands({...commands, lights_off: val})}
-              placeholderTextColor="#666"
-              multiline
-            />
-
-            <Text style={styles.label}>Shutdown Command</Text>
-            <TextInput
-              style={styles.commandInput}
-              value={commands.shutdown_cmd}
-              onChangeText={(val) => setCommands({...commands, shutdown_cmd: val})}
-              placeholderTextColor="#666"
-              multiline
-            />
-          </View>
-
-          <TouchableOpacity style={styles.saveButton} onPress={saveCommands} disabled={loading}>
-            {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Commands</Text>}
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
   // Configuration Screen
   if (showConfig || !configured) {
     return (
@@ -360,11 +214,6 @@ export default function App() {
         <StatusBar barStyle="light-content" />
         <ScrollView contentContainerStyle={styles.configContainer}>
           <View style={styles.header}>
-            {configured && (
-              <TouchableOpacity onPress={() => setShowConfig(false)} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={28} color="#FF6B00" />
-              </TouchableOpacity>
-            )}
             <Ionicons name="skull" size={80} color="#FF6B00" />
             <Text style={styles.title}>Pumpkin Control</Text>
             <Text style={styles.subtitle}>SSH Configuration</Text>
@@ -392,19 +241,14 @@ export default function App() {
             />
 
             <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter password"
-                placeholderTextColor="#666"
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#FF6B00" />
-              </TouchableOpacity>
-            </View>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter password"
+              placeholderTextColor="#666"
+              secureTextEntry
+            />
 
             <Text style={styles.label}>Port</Text>
             <TextInput
@@ -417,8 +261,16 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity style={styles.saveButton} onPress={saveConfiguration} disabled={loading}>
-            {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Configuration</Text>}
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={saveConfiguration}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Configuration</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -430,28 +282,32 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <ScrollView contentContainerStyle={styles.dashboardContainer}>
+        {/* Header */}
         <View style={styles.header}>
           <Ionicons name="skull" size={60} color="#FF6B00" />
           <Text style={styles.title}>Pumpkin Control</Text>
         </View>
 
+        {/* Status Bar */}
         <View style={styles.statusBar}>
           <View style={styles.statusItem}>
             <View style={[styles.statusDot, { backgroundColor: connected ? '#4CAF50' : '#F44336' }]} />
-            <Text style={styles.statusText}>{connected ? 'Connected' : 'Disconnected'}</Text>
+            <Text style={styles.statusText}>
+              {connected ? 'Connected' : 'Disconnected'}
+            </Text>
           </View>
-          <View style={styles.statusButtons}>
-            <TouchableOpacity onPress={() => setShowCommands(true)} style={styles.iconButton}>
-              <Ionicons name="terminal-outline" size={24} color="#FF6B00" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowConfig(true)} style={styles.iconButton}>
-              <Ionicons name="settings-outline" size={24} color="#FF6B00" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => setShowConfig(true)}>
+            <Ionicons name="settings-outline" size={28} color="#FF6B00" />
+          </TouchableOpacity>
         </View>
 
+        {/* Connect Button (if not connected) */}
         {configured && !connected && (
-          <TouchableOpacity style={styles.connectButton} onPress={handleConnect} disabled={connecting}>
+          <TouchableOpacity
+            style={styles.connectButton}
+            onPress={handleConnect}
+            disabled={connecting}
+          >
             {connecting ? (
               <ActivityIndicator color="#000" />
             ) : (
@@ -463,7 +319,9 @@ export default function App() {
           </TouchableOpacity>
         )}
 
+        {/* Control Buttons */}
         <View style={styles.controlsContainer}>
+          {/* Fan Control */}
           <TouchableOpacity
             style={[styles.controlButton, fanOn && styles.controlButtonActive]}
             onPress={() => executeControl('fan', fanOn ? 'off' : 'on', setFanOn)}
@@ -474,6 +332,7 @@ export default function App() {
             <Text style={styles.controlButtonStatus}>{fanOn ? 'ON' : 'OFF'}</Text>
           </TouchableOpacity>
 
+          {/* Camera Control */}
           <TouchableOpacity
             style={[styles.controlButton, cameraOn && styles.controlButtonActive]}
             onPress={() => executeControl('camera', cameraOn ? 'off' : 'on', setCameraOn)}
@@ -484,6 +343,7 @@ export default function App() {
             <Text style={styles.controlButtonStatus}>{cameraOn ? 'ON' : 'OFF'}</Text>
           </TouchableOpacity>
 
+          {/* Lights Control */}
           <TouchableOpacity
             style={[styles.controlButton, lightsOn && styles.controlButtonActive]}
             onPress={() => executeControl('lights', lightsOn ? 'off' : 'on', setLightsOn)}
@@ -494,6 +354,7 @@ export default function App() {
             <Text style={styles.controlButtonStatus}>{lightsOn ? 'ON' : 'OFF'}</Text>
           </TouchableOpacity>
 
+          {/* Shutdown Button */}
           <TouchableOpacity
             style={[styles.controlButton, styles.shutdownButton]}
             onPress={handleShutdown}
@@ -504,20 +365,6 @@ export default function App() {
             <Text style={styles.controlButtonStatus}>Power Off</Text>
           </TouchableOpacity>
         </View>
-
-        {terminalLogs.length > 0 && (
-          <View style={styles.terminalContainer}>
-            <View style={styles.terminalHeader}>
-              <Ionicons name="terminal" size={16} color="#4CAF50" />
-              <Text style={styles.terminalTitle}>Terminal</Text>
-            </View>
-            <View style={styles.terminalContent}>
-              {terminalLogs.map((log, idx) => (
-                <Text key={idx} style={styles.terminalLog}>{log}</Text>
-              ))}
-            </View>
-          </View>
-        )}
 
         {loading && (
           <View style={styles.loadingOverlay}>
@@ -546,11 +393,6 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     marginTop: 16,
   },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -574,13 +416,6 @@ const styles = StyleSheet.create({
   statusItem: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  statusButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  iconButton: {
-    padding: 4,
   },
   statusDot: {
     width: 12,
@@ -611,34 +446,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#444',
-  },
-  commandInput: {
-    backgroundColor: '#2a2a2a',
-    color: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#444',
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#444',
-  },
-  passwordInput: {
-    flex: 1,
-    color: '#fff',
-    padding: 16,
-    fontSize: 16,
-  },
-  eyeButton: {
-    padding: 16,
   },
   saveButton: {
     backgroundColor: '#FF6B00',
@@ -696,36 +503,6 @@ const styles = StyleSheet.create({
   },
   shutdownButton: {
     borderColor: '#F44336',
-  },
-  terminalContainer: {
-    backgroundColor: '#000',
-    borderRadius: 12,
-    marginTop: 24,
-    borderWidth: 1,
-    borderColor: '#4CAF50',
-  },
-  terminalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#4CAF50',
-    gap: 8,
-  },
-  terminalTitle: {
-    color: '#4CAF50',
-    fontSize: 14,
-    fontWeight: 'bold',
-    fontFamily: 'monospace',
-  },
-  terminalContent: {
-    padding: 12,
-  },
-  terminalLog: {
-    color: '#4CAF50',
-    fontSize: 12,
-    fontFamily: 'monospace',
-    marginBottom: 4,
   },
   loadingOverlay: {
     position: 'absolute',
