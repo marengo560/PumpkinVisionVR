@@ -23,10 +23,13 @@ app.add_middleware(
 
 # MongoDB setup
 MONGO_URL = os.getenv("MONGO_URL")
-client = AsyncIOMotorClient(MONGO_URL)
+client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
 db = client.pumpkin_control
 config_collection = db.ssh_config
 logs_collection = db.command_logs
+
+# Connection state storage (in-memory for now)
+connection_state = {"connected": False, "configured": False}
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
