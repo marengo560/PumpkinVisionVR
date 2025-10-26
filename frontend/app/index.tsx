@@ -22,6 +22,7 @@ export default function App() {
   const [showConfig, setShowConfig] = useState(false);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   
   // SSH Config
