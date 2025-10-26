@@ -48,6 +48,15 @@ class CommandRequest(BaseModel):
 class ControlRequest(BaseModel):
     action: str  # 'on' or 'off'
 
+class CustomCommands(BaseModel):
+    fan_on: str = "echo 1 > /sys/class/gpio/gpio_fan/value"
+    fan_off: str = "echo 0 > /sys/class/gpio/gpio_fan/value"
+    camera_on: str = "nohup python3 /home/camera_script.py > /dev/null 2>&1 &"
+    camera_off: str = "pkill -f camera_script.py"
+    lights_on: str = "echo 1 > /sys/class/gpio/gpio_lights/value"
+    lights_off: str = "echo 0 > /sys/class/gpio/gpio_lights/value"
+    shutdown_cmd: str = "sudo shutdown -h now"
+
 # SSH Execution Helper
 async def execute_ssh_command(config: dict, command: str):
     """Execute SSH command on remote device"""
