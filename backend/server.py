@@ -195,6 +195,9 @@ async def execute_command(request: CommandRequest):
 async def control_fan(request: ControlRequest):
     """Control the fan"""
     try:
+        if not connection_state.get("connected", False):
+            raise HTTPException(status_code=400, detail="Not connected. Please connect first.")
+        
         config = await config_collection.find_one({})
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
@@ -216,6 +219,9 @@ async def control_fan(request: ControlRequest):
 async def control_camera(request: ControlRequest):
     """Control the camera - runs Python script"""
     try:
+        if not connection_state.get("connected", False):
+            raise HTTPException(status_code=400, detail="Not connected. Please connect first.")
+        
         config = await config_collection.find_one({})
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
@@ -238,6 +244,9 @@ async def control_camera(request: ControlRequest):
 async def control_lights(request: ControlRequest):
     """Control the lights"""
     try:
+        if not connection_state.get("connected", False):
+            raise HTTPException(status_code=400, detail="Not connected. Please connect first.")
+        
         config = await config_collection.find_one({})
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
@@ -258,12 +267,19 @@ async def control_lights(request: ControlRequest):
 async def shutdown_device():
     """Shutdown the Jetson device"""
     try:
+        if not connection_state.get("connected", False):
+            raise HTTPException(status_code=400, detail="Not connected. Please connect first.")
+        
         config = await config_collection.find_one({})
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
         
         command = "sudo shutdown -h now"
         result = await execute_ssh_command(config, command)
+        
+        # Mark as disconnected after shutdown
+        connection_state["connected"] = False
+        
         return {"status": "success", "message": "Shutdown command sent", "result": result}
     except HTTPException:
         raise
