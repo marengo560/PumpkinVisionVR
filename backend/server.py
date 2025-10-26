@@ -234,14 +234,15 @@ async def control_fan(request: ControlRequest):
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
         
-        # Assuming GPIO control or similar command
-        if request.action == "on":
-            command = "echo 1 > /sys/class/gpio/gpio_fan/value"  # Example command
-        else:
-            command = "echo 0 > /sys/class/gpio/gpio_fan/value"
+        # Get custom commands
+        commands = await commands_collection.find_one({})
+        if not commands:
+            commands = CustomCommands().dict()
+        
+        command = commands.get('fan_on') if request.action == "on" else commands.get('fan_off')
         
         result = await execute_ssh_command(config, command)
-        return {"status": "success", "action": request.action, "result": result}
+        return {"status": "success", "action": request.action, "command": command, "result": result}
     except HTTPException:
         raise
     except Exception as e:
@@ -258,15 +259,15 @@ async def control_camera(request: ControlRequest):
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
         
-        if request.action == "on":
-            # Run camera script in background
-            command = "nohup python3 /home/camera_script.py > /dev/null 2>&1 &"
-        else:
-            # Kill camera process
-            command = "pkill -f camera_script.py"
+        # Get custom commands
+        commands = await commands_collection.find_one({})
+        if not commands:
+            commands = CustomCommands().dict()
+        
+        command = commands.get('camera_on') if request.action == "on" else commands.get('camera_off')
         
         result = await execute_ssh_command(config, command)
-        return {"status": "success", "action": request.action, "result": result}
+        return {"status": "success", "action": request.action, "command": command, "result": result}
     except HTTPException:
         raise
     except Exception as e:
@@ -283,13 +284,15 @@ async def control_lights(request: ControlRequest):
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
         
-        if request.action == "on":
-            command = "echo 1 > /sys/class/gpio/gpio_lights/value"  # Example command
-        else:
-            command = "echo 0 > /sys/class/gpio/gpio_lights/value"
+        # Get custom commands
+        commands = await commands_collection.find_one({})
+        if not commands:
+            commands = CustomCommands().dict()
+        
+        command = commands.get('lights_on') if request.action == "on" else commands.get('lights_off')
         
         result = await execute_ssh_command(config, command)
-        return {"status": "success", "action": request.action, "result": result}
+        return {"status": "success", "action": request.action, "command": command, "result": result}
     except HTTPException:
         raise
     except Exception as e:
@@ -306,13 +309,18 @@ async def shutdown_device():
         if not config:
             raise HTTPException(status_code=400, detail="SSH not configured")
         
-        command = "sudo shutdown -h now"
+        # Get custom commands
+        commands = await commands_collection.find_one({})
+        if not commands:
+            commands = CustomCommands().dict()
+        
+        command = commands.get('shutdown_cmd')
         result = await execute_ssh_command(config, command)
         
         # Mark as disconnected after shutdown
         connection_state["connected"] = False
         
-        return {"status": "success", "message": "Shutdown command sent", "result": result}
+        return {"status": "success", "message": "Shutdown command sent", "command": command, "result": result}
     except HTTPException:
         raise
     except Exception as e:
