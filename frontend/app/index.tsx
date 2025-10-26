@@ -297,6 +297,24 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
+        {/* Connect Button (if not connected) */}
+        {configured && !connected && (
+          <TouchableOpacity
+            style={styles.connectButton}
+            onPress={handleConnect}
+            disabled={connecting}
+          >
+            {connecting ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <>
+                <Ionicons name="link" size={24} color="#000" style={{ marginRight: 8 }} />
+                <Text style={styles.connectButtonText}>Connect to Device</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
         {/* Control Buttons */}
         <View style={styles.controlsContainer}>
           {/* Fan Control */}
