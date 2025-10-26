@@ -1,21 +1,30 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Pumpkin Control",
+    "slug": "pumpkin-control",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
-    "userInterfaceStyle": "automatic",
+    "scheme": "pumpkincontrol",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a1a"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pumpkincontrol.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000"
+        "backgroundColor": "#1a1a1a"
       },
+      "package": "com.pumpkincontrol.app",
+      "versionCode": 1,
+      "permissions": [],
       "edgeToEdgeEnabled": true
     },
     "web": {
