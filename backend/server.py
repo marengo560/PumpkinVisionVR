@@ -27,6 +27,7 @@ client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
 db = client.pumpkin_control
 config_collection = db.ssh_config
 logs_collection = db.command_logs
+commands_collection = db.custom_commands
 
 # Connection state storage (in-memory for now)
 connection_state = {"connected": False, "configured": False}
