@@ -52,6 +52,7 @@ export default function App() {
       
       if (data.configured) {
         setConfigured(true);
+        setShowConfig(false); // Hide config screen when already configured
         setHost(data.host);
         setUsername(data.username);
         setPort(data.port?.toString() || '22');
