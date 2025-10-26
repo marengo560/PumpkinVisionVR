@@ -62,6 +62,9 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error checking config:', error);
+      setShowConfig(true); // Show config on error
+    } finally {
+      setLoading(false); // Done loading
     }
   };
 
